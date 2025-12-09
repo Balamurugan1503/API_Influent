@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: influent-api
+    name: influent_api
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
