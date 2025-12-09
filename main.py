@@ -4,12 +4,11 @@
 # influent (raw wastewater) water quality parameter simulation
 # ----------------------------------------------------------
 
-from fastapi import FastAPI, Response, Query
+from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
 import random
 
-# Initialize the FastAPI application
 app = FastAPI(
     title="Influent Generator API",
     description="Generates realistic influent water quality parameters for use in ML-based wastewater treatment simulations",
@@ -21,23 +20,22 @@ app = FastAPI(
 # ----------------------------------------------------------
 
 INFLUENT_RANGES = {
-    "flow_m3_h": (20, 500),         # m3/h
-    "temp_C": (10, 35),             # Celsius
-    "pH": (6.0, 8.5),               # unitless
-    "TSS_in_mgL": (80, 800),        # mg/L - Total Suspended Solids
-    "BOD_in_mgL": (100, 500),       # mg/L - Biochemical Oxygen Demand
-    "COD_in_mgL": (200, 1000),      # mg/L - Chemical Oxygen Demand
-    "oil_grease_in_mgL": (1, 50),   # mg/L
-    "turbidity_in_NTU": (20, 500),  # NTU
+    "flow_m3_h": (20, 500),            # m3/h
+    "temp_C": (10, 35),                # Celsius
+    "pH": (6.0, 8.5),                  # unitless
+    "TSS_in_mgL": (80, 800),           # mg/L
+    "BOD_in_mgL": (100, 500),          # mg/L
+    "COD_in_mgL": (200, 1000),         # mg/L
+    "oil_grease_in_mgL": (1, 50),      # mg/L
+    "turbidity_in_NTU": (20, 500),     # NTU
 }
 
 
 # ----------------------------------------------------------
-# Pydantic models for clean API input/output
+# Pydantic models for clean API output
 # ----------------------------------------------------------
 
 class Influent(BaseModel):
-    """Model for a single set of influent parameters."""
     flow_m3_h: float
     temp_C: float
     pH: float
@@ -49,7 +47,6 @@ class Influent(BaseModel):
 
 
 class InfluentBatch(BaseModel):
-    """Model for a list (batch) of influent parameters."""
     count: int
     influents: List[Influent]
 
@@ -62,7 +59,6 @@ def generate_influent() -> Influent:
     """Generate one realistic influent sample within defined bounds."""
     def rand(low, high, decimals=1):
         value = random.uniform(low, high)
-        # Use round(value) for integers (decimals=0), otherwise round to specified decimals
         if decimals == 0:
             return round(value)
         return round(value, decimals)
@@ -85,43 +81,28 @@ def generate_influent() -> Influent:
 
 @app.get("/", tags=["health"])
 def root():
-    """Returns a health status message."""
     return {
         "status": "ok",
         "message": "Influent Generator API is running."
     }
 
-# Added HEAD handler to prevent 405 errors from health checks
-@app.head("/", tags=["health"], status_code=200)
-def head_root(response: Response):
-    """Responds to HEAD requests for health checks."""
-    # Since HEAD requests only ask for headers, we just set a 200 status
-    # and return, preventing the 405 error you saw.
-    return response
-
 
 @app.get("/influent", response_model=Influent, tags=["influent"])
 def get_single_influent():
     """
-    Returns one random, realistic influent profile.
-    Suitable for single-step ML model inputs.
+    Returns one random influent profile.
+    Suitable for primary/biological/tertiary ML model inputs.
     """
     return generate_influent()
 
 
 @app.get("/influent/batch", response_model=InfluentBatch, tags=["influent"])
-def get_batch_influent(
-    n: int = Query(
-        default=5, 
-        ge=1, 
-        le=100, 
-        description="The number of influent samples to generate."
-    )
-):
+def get_batch_influent(n: int = 5):
     """
     Returns a batch of random influents.
     Query: /influent/batch?n=10
     Limit: 1–100
     """
+    n = max(1, min(n, 100))
     samples = [generate_influent() for _ in range(n)]
     return InfluentBatch(count=n, influents=samples)
